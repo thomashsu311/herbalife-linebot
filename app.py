@@ -31,19 +31,27 @@ def handle_message(event):
     try:
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         line_id = event.source.user_id
-        if "體重" in msg and "體脂" in msg:
-            weight = float(re.search(r"體重\s*(\d+(\.\d+)?)", msg).group(1))
-            fat = float(re.search(r"體脂\s*(\d+(\.\d+)?)", msg).group(1))
-            append_data(sheet, [now, line_id, "", weight, "", fat])
-            reply = f"✅ 已記錄：體重 {weight}kg，體脂 {fat}%"
-        elif "身高" in msg and "體重" in msg:
-            height = float(re.search(r"身高\s*(\d+(\.\d+)?)", msg).group(1))
-            weight = float(re.search(r"體重\s*(\d+(\.\d+)?)", msg).group(1))
+
+        weight_match = re.search(r"體重[:：]?\s*(\d+(?:\.\d+)?)", msg)
+        fat_match = re.search(r"體脂[:：]?\s*(\d+(?:\.\d+)?)", msg)
+        height_match = re.search(r"身高[:：]?\s*(\d+(?:\.\d+)?)", msg)
+
+        if height_match and weight_match:
+            height = float(height_match.group(1))
+            weight = float(weight_match.group(1))
             bmi = round(weight / ((height / 100) ** 2), 1)
             append_data(sheet, [now, line_id, height, weight, bmi, ""])
             reply = f"✅ 已記錄：\n身高 {height}cm\n體重 {weight}kg\nBMI：{bmi}"
+        elif weight_match and fat_match:
+            weight = float(weight_match.group(1))
+            fat = float(fat_match.group(1))
+            append_data(sheet, [now, line_id, "", weight, "", fat])
+            reply = f"✅ 已記錄：體重 {weight}kg，體脂 {fat}%"
+        else:
+            reply = "⚠️ 找不到完整資料，請輸入例如『體重72 體脂25』或『身高171 體重72』"
     except Exception as e:
-        reply = f"⚠️ 發生錯誤：{str(e)}\n請確認格式正確，例如：身高170 體重70"
+        reply = f"⚠️ 發生錯誤：{str(e)}\n請確認格式正確"
+
     line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
 
 if __name__ == "__main__":
