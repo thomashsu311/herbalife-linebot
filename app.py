@@ -14,6 +14,13 @@ handler = WebhookHandler('00bf24e1a86139a305722458dd9ebcf3')
 
 sheet = connect_to_sheet('賀寶芙體重管理記錄表')
 
+def get_display_name(user_id):
+    try:
+        profile = line_bot_api.get_profile(user_id)
+        return profile.display_name
+    except:
+        return user_id  # 若抓不到就 fallback 回 user_id
+
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers['X-Line-Signature']
@@ -30,7 +37,8 @@ def handle_message(event):
     reply = "請輸入健康資料，例如：體重72 體脂25 或 身高171 體重72"
     try:
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        line_id = event.source.user_id
+        user_id = event.source.user_id
+        display_name = get_display_name(user_id)
 
         weight_match = re.search(r"體重[:：]?\s*(\d+(?:\.\d+)?)", msg)
         fat_match = re.search(r"體脂[:：]?\s*(\d+(?:\.\d+)?)", msg)
@@ -40,12 +48,12 @@ def handle_message(event):
             height = float(height_match.group(1))
             weight = float(weight_match.group(1))
             bmi = round(weight / ((height / 100) ** 2), 1)
-            append_data(sheet, [now, line_id, height, weight, bmi, ""])
+            append_data(sheet, [now, display_name, height, weight, bmi, ""])
             reply = f"✅ 已記錄：\n身高 {height}cm\n體重 {weight}kg\nBMI：{bmi}"
         elif weight_match and fat_match:
             weight = float(weight_match.group(1))
             fat = float(fat_match.group(1))
-            append_data(sheet, [now, line_id, "", weight, "", fat])
+            append_data(sheet, [now, display_name, "", weight, "", fat])
             reply = f"✅ 已記錄：體重 {weight}kg，體脂 {fat}%"
         else:
             reply = "⚠️ 找不到完整資料，請輸入例如『體重72 體脂25』或『身高171 體重72』"
