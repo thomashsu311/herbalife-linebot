@@ -4,6 +4,7 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 from sheets import connect_to_sheet, append_data, get_latest_record
 import datetime
+from pytz import timezone
 import re
 import os
 
@@ -45,7 +46,8 @@ def handle_message(event):
     try:
         user_id = event.source.user_id
         display_name = get_display_name(user_id)
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        tz = timezone("Asia/Taipei")
+        now = datetime.datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
 
         # 查詢最近一次
         if "查詢最近一次" in msg:
