@@ -21,6 +21,12 @@ def get_display_name(user_id):
     except:
         return user_id
 
+def get_today_records(sheet, display_name):
+    records = sheet.get_all_values()
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    matched = [r for r in records[1:] if r[1] == display_name and r[0].startswith(today)]
+    return matched
+
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers['X-Line-Signature']
@@ -33,7 +39,8 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    msg = event.message.text.strip()
+    msg = event.message.text.strip().replace("　", "").replace(" ", "")
+    print(f"使用者訊息：{msg}")  # 除錯用
     reply = "請輸入健康資料，例如：體重72 體脂25 或 身高171 體重72"
     try:
         user_id = event.source.user_id
@@ -47,6 +54,17 @@ def handle_message(event):
                 reply = f"✅ 最近一次紀錄：\n日期：{latest[0]}\n體重：{latest[3]}kg\n體脂：{latest[5]}%\nBMI：{latest[4]}"
             else:
                 reply = "⚠️ 找不到您的紀錄。請先輸入一次體重或體脂資訊試試！"
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+            return
+
+        # 查詢今天
+        if "查詢今天" in msg:
+            today_records = get_today_records(sheet, display_name)
+            if today_records:
+                lines = [f"{r[0]}：體重{r[3]}kg 體脂{r[5]}% BMI{r[4]}" for r in today_records]
+                reply = "✅ 今天的紀錄：\n" + "\n".join(lines)
+            else:
+                reply = "📭 今天尚無紀錄，趕快來量一下吧！"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
             return
 
