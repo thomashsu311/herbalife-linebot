@@ -4,12 +4,13 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 from sheets import connect_to_sheet, append_data
 import datetime
+import pytz  # 加入台灣時區處理
 
 app = Flask(__name__)
 
 # Channel Access Token 與 Secret
-line_bot_api = LineBotApi('OYsBtOtimw+ksK5LTeP1BXCB7RL0oHbiVwNKAMZ6oIZ0DXfMV+4AGXVG3ITSsbNbYtP9fxX/zLrqNBe1WjgJN5wCGumzaI9WuQBcG+fkvR+0x0i34H9AsOhg71P7MZNOytSDB29BUhyTVhH0CwMh+QdB04t89/1O/w1cDnyilFU=')
-handler = WebhookHandler('00bf24e1a86139a305722458dd9ebcf3')
+line_bot_api = LineBotApi('OYsBtOtimw+...')  # 請填入你的 TOKEN
+handler = WebhookHandler('00bf24e1a861...')  # 請填入你的 SECRET
 
 # 連接 Google Sheet
 sheet = connect_to_sheet('賀寶芙體重管理記錄表')
@@ -39,7 +40,10 @@ def handle_message(event):
             user_id = event.source.user_id
             profile = line_bot_api.get_profile(user_id)
             display_name = profile.display_name
-            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            # 使用台灣時區
+            tz = pytz.timezone('Asia/Taipei')
+            now = datetime.datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
 
             # 欄位別名對應
             alias = {
@@ -83,4 +87,3 @@ def handle_message(event):
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
-
