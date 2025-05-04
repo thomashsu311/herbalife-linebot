@@ -18,3 +18,10 @@ def append_data(sheet, data):
     if len(data) != 6:
         raise ValueError("資料欄位數不正確，應為 6 項")
     sheet.append_row(data)
+
+def get_latest_record(sheet, display_name):
+    records = sheet.get_all_values()
+    headers = records[0]
+    rows = records[1:]
+    matched = [row for row in rows if row[1] == display_name]
+    return matched[-1] if matched else None

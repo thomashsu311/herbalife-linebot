@@ -2,7 +2,7 @@ from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
-from sheets import connect_to_sheet, append_data
+from sheets import connect_to_sheet, append_data, get_latest_record
 import datetime
 import re
 import os
@@ -19,7 +19,7 @@ def get_display_name(user_id):
         profile = line_bot_api.get_profile(user_id)
         return profile.display_name
     except:
-        return user_id  # 若抓不到就 fallback 回 user_id
+        return user_id
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -36,9 +36,19 @@ def handle_message(event):
     msg = event.message.text.strip()
     reply = "請輸入健康資料，例如：體重72 體脂25 或 身高171 體重72"
     try:
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         user_id = event.source.user_id
         display_name = get_display_name(user_id)
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # 查詢最近一次
+        if "查詢最近一次" in msg:
+            latest = get_latest_record(sheet, display_name)
+            if latest:
+                reply = f"✅ 最近一次紀錄：\n日期：{latest[0]}\n體重：{latest[3]}kg\n體脂：{latest[5]}%\nBMI：{latest[4]}"
+            else:
+                reply = "⚠️ 找不到您的紀錄。請先輸入一次體重或體脂資訊試試！"
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+            return
 
         weight_match = re.search(r"體重[:：]?\s*(\d+(?:\.\d+)?)", msg)
         fat_match = re.search(r"體脂[:：]?\s*(\d+(?:\.\d+)?)", msg)
