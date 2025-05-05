@@ -90,7 +90,7 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    msg = event.message.text.strip()
+    msg = event.message.text.replace("　", " ").replace("\u3000", " ").strip()
     uid = event.source.user_id
     name = get_display_name(uid)
     tz = timezone("Asia/Taipei")
