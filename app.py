@@ -9,12 +9,17 @@ from sheets import connect_to_sheet, get_or_create_worksheet, load_alias
 
 app = Flask(__name__)
 
-line_bot_api = LineBotApi(os.environ.get("LINE_CHANNEL_ACCESS_TOKEN"))
-handler = WebhookHandler(os.environ.get("LINE_CHANNEL_SECRET"))
+channel_access_token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
+channel_secret = os.environ.get("LINE_CHANNEL_SECRET")
 sheet_name = os.environ.get("SHEET_NAME", "賀寶芙體重管理記錄表")
-alias_map = load_alias()
 
+print("[Init] 取得 access_token:", bool(channel_access_token))
+print("[Init] 取得 secret:", bool(channel_secret))
+
+line_bot_api = LineBotApi(channel_access_token)
+handler = WebhookHandler(channel_secret)
 sheet = connect_to_sheet(sheet_name)
+alias_map = load_alias()
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -34,6 +39,8 @@ def handle_message(event):
     name = profile.display_name
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    print(f"[LOG] 收到訊息：{msg} 來自：{name}")
+
     if msg.startswith("註冊"):
         tokens = msg.split()
         if len(tokens) == 4:
@@ -45,7 +52,6 @@ def handle_message(event):
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="請輸入：註冊 男 170 1990-01-01"))
         return
 
-    # 處理健康數據：例如 體重80 體脂25
     records = {}
     for token in msg.split():
         for key in alias_map:
@@ -56,7 +62,7 @@ def handle_message(event):
                 break
 
     if records:
-        ws = get_or_create_worksheet(sheet, "體重記錄表", ["時間", "LINE名稱"] + list(alias_map.values()))
+        ws = get_or_create_worksheet(sheet, "體重記錄表", ["時間", "LINE名稱"] + list(set(alias_map.values())))
         row = [now, name]
         headers = ws.row_values(1)
         for col in headers[2:]:
