@@ -3,4 +3,4 @@ line-bot-sdk==2.4.1
 gspread
 oauth2client
 pytz
-matplotlib==3.8.4
+matplotlib

@@ -1,27 +1,25 @@
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 import os
 import json
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 def connect_to_sheet(sheet_name):
     google_creds_json = os.environ.get("GOOGLE_CREDENTIALS")
-    if not google_creds_json:
-        raise ValueError("未設定 GOOGLE_CREDENTIALS 環境變數")
     creds_dict = json.loads(google_creds_json)
-    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
-    sheet = client.open(sheet_name).sheet1
-    return sheet
+    return client.open(sheet_name)
 
-def append_data(sheet, data):
-    if len(data) != 6:
-        raise ValueError("資料欄位數不正確，應為 6 項")
-    sheet.append_row(data)
+def get_or_create_worksheet(sheet, name, headers=[]):
+    try:
+        ws = sheet.worksheet(name)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = sheet.add_worksheet(title=name, rows="1000", cols="30")
+        if headers:
+            ws.append_row(headers)
+    return ws
 
-def get_latest_record(sheet, display_name):
-    records = sheet.get_all_values()
-    headers = records[0]
-    rows = records[1:]
-    matched = [row for row in rows if row[1] == display_name]
-    return matched[-1] if matched else None
+def load_alias():
+    with open("alias.json", encoding="utf-8") as f:
+        return json.load(f)
