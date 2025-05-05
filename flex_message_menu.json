@@ -1,0 +1,73 @@
+{
+  "type": "bubble",
+  "body": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "text",
+        "text": "我的紀錄",
+        "weight": "bold",
+        "size": "lg",
+        "align": "center",
+        "margin": "md"
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "button",
+            "action": {
+              "type": "message",
+              "label": "👤 個人資料",
+              "text": "個人資料"
+            },
+            "style": "primary",
+            "color": "#00BCD4"
+          },
+          {
+            "type": "button",
+            "action": {
+              "type": "message",
+              "label": "✍️ 記錄體重",
+              "text": "記錄體重"
+            },
+            "style": "primary",
+            "color": "#CDDC39"
+          }
+        ],
+        "margin": "md",
+        "spacing": "md"
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "button",
+            "action": {
+              "type": "message",
+              "label": "📈 趨勢圖",
+              "text": "趨勢圖"
+            },
+            "style": "primary",
+            "color": "#FFC107"
+          },
+          {
+            "type": "button",
+            "action": {
+              "type": "message",
+              "label": "📷 上傳照片",
+              "text": "上傳照片"
+            },
+            "style": "primary",
+            "color": "#FF7043"
+          }
+        ],
+        "margin": "md",
+        "spacing": "md"
+      }
+    ]
+  }
+}
