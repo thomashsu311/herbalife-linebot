@@ -1,6 +1,4 @@
-flask
-line-bot-sdk==2.4.1
+Flask
+line-bot-sdk
 gspread
 oauth2client
-pytz
-matplotlib

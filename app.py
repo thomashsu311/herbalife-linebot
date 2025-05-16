@@ -18,7 +18,7 @@ handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 with open("alias.json", "r", encoding="utf-8") as f:
     alias_map = json.load(f)
 
-# 定義正確欄位順序
+# 正確欄位順序
 official_columns = [
     "日期", "LINE名稱", "稱呼", "身高", "體重", "BMI", "體脂率", "體水份量", "脂肪量",
     "心率", "蛋白質量", "肌肉量", "肌肉率", "身體水份", "蛋白質率", "骨鹽率",
@@ -41,6 +41,7 @@ def home():
 def callback():
     signature = request.headers["X-Line-Signature"]
     body = request.get_data(as_text=True)
+
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
@@ -61,20 +62,18 @@ def handle_message(event):
             now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
             sheet.append_row([now, display_name, gender, height, birthday])
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ 已完成註冊"))
-        except Exception as e:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠ 註冊格式錯誤：" + str(e)))
+        except:
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠ 請輸入格式：註冊 男 171 1969-03-11"))
         return
 
     try:
-        data_dict = parse_text(user_text)
-        if data_dict:
+        data = parse_text(user_text)
+        if data:
             now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-            row = [now, display_name]
-            for col in official_columns[2:]:
-                row.append(data_dict.get(col, ""))
+            row = [now, display_name] + [data.get(col, "") for col in official_columns[2:]]
             sheet = get_gsheet().worksheet("體重記錄表")
             sheet.append_row(row)
-            reply = f"✅ 已記錄：" + ", ".join(f"{k} {v}" for k, v in data_dict.items())
+            reply = f"✅ 已記錄：{', '.join(f'{k}:{v}' for k,v in data.items())}"
         else:
             reply = "⚠ 格式錯誤，請輸入如：體重95.3 體脂30.8 內脂14"
     except Exception as e:
@@ -87,12 +86,14 @@ def parse_text(text):
     for part in text.split():
         for alias, key in alias_map.items():
             if part.startswith(alias):
-                try:
-                    value = part.replace(alias, "")
-                    value = float(value) if "." in value else int(value)
+                value = part.replace(alias, "")
+                if key == "稱呼":
                     data[key] = value
-                except:
-                    data[key] = ""
+                else:
+                    try:
+                        data[key] = float(value) if "." in value else int(value)
+                    except:
+                        pass
     return data if data else None
 
 if __name__ == "__main__":
