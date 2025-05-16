@@ -4,7 +4,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    return "LIFF redirect active - v1.1"
+    return redirect('/form-liff')
 
 @app.route('/form-liff')
 def form_liff():
