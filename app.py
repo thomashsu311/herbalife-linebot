@@ -4,7 +4,8 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    return render_template('form.html')  # 指向更新後的表單
+    return render_template('form.html')
 
-if __name__ == '__main__':
-    app.run()
+@app.route('/form-liff')
+def form_liff():
+    return render_template('form.html')
