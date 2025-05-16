@@ -8,4 +8,4 @@ def index():
 
 @app.route('/form-liff')
 def form_liff():
-    return render_template('form.html')
+    return redirect('/')
