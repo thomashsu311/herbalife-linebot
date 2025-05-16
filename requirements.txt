@@ -1,3 +1,2 @@
 flask
-gspread
-oauth2client
+gunicorn
