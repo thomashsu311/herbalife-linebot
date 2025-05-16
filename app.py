@@ -1,4 +1,3 @@
-
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
@@ -10,12 +9,21 @@ import json
 from datetime import datetime, timedelta, timezone
 
 app = Flask(__name__)
+tz = timezone(timedelta(hours=8))
 
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
-# Timezone for Taiwan
-tz = timezone(timedelta(hours=8))
+# 載入 alias.json
+with open("alias.json", "r", encoding="utf-8") as f:
+    alias_map = json.load(f)
+
+# 定義正確欄位順序
+official_columns = [
+    "日期", "LINE名稱", "稱呼", "身高", "體重", "BMI", "體脂率", "體水份量", "脂肪量",
+    "心率", "蛋白質量", "肌肉量", "肌肉率", "身體水份", "蛋白質率", "骨鹽率",
+    "骨骼肌量", "內臟脂肪", "基礎代謝率", "身體年齡"
+]
 
 def get_gsheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -26,8 +34,8 @@ def get_gsheet():
     return spreadsheet
 
 @app.route("/")
-def hello():
-    return "Hello from Line Bot!"
+def home():
+    return "Herbalife LineBot is running."
 
 @app.route("/callback", methods=["POST"])
 def callback():
@@ -56,32 +64,40 @@ def handle_message(event):
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ 已完成註冊"))
         except:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠ 請輸入格式：註冊 男 171 1969-03-11"))
-    else:
+        return
+
+    data_dict = parse_text(user_text)
+    if data_dict:
         try:
-            data = parse_text(user_text)
-            if data:
-                now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-                sheet = get_gsheet().worksheet("體重紀錄")
-                sheet.append_row([now, display_name] + data)
-                text = f"✅ 已記錄：體重 {data[0]}, 體脂率 {data[1]}, 內臟脂 {data[2]}"
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=text))
-            else:
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠ 格式錯誤，請輸入如：體重95.3 體脂30.8 內脂14"))
+            now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+            row = [now, display_name]  # 日期、LINE名稱
+            for col in official_columns[2:]:
+                row.append(data_dict.get(col, ""))
+            sheet = get_gsheet().worksheet("體重記錄表")
+            sheet.append_row(row)
+            reply = f"✅ 已記錄：{', '.join(f'{k}:{v}' for k,v in data_dict.items())}"
         except Exception as e:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠ 發生錯誤：" + str(e)))
+            reply = "⚠ 寫入失敗：" + str(e)
+    else:
+        reply = "⚠ 請輸入格式如：體重95.3 體脂30.8 內脂14"
+
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
 
 def parse_text(text):
-    weight = bodyfat = visceral = None
+    data = {}
     for part in text.split():
-        if part.startswith("體重"):
-            weight = float(part.replace("體重", ""))
-        elif part.startswith("體脂"):
-            bodyfat = float(part.replace("體脂", ""))
-        elif part.startswith("內脂") or part.startswith("內臟"):
-            visceral = float(part.replace("內脂", "").replace("內臟", ""))
-    if weight and bodyfat and visceral is not None:
-        return [weight, bodyfat, visceral]
-    return None
+        for alias, key in alias_map.items():
+            if part.startswith(alias):
+                try:
+                    value = part.replace(alias, "")
+                    if "." in value:
+                        value = float(value)
+                    else:
+                        value = int(value)
+                    data[key] = value
+                except:
+                    pass
+    return data if data else None
 
 if __name__ == "__main__":
     app.run()
