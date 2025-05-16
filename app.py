@@ -1,16 +1,17 @@
-from flask import Flask, request, render_template_string
+from flask import Flask, request, render_template
 import os
-import json
 import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import json
 
 app = Flask(__name__)
 
+# Google Sheets 連線設定
 def connect_to_sheet(sheet_name):
     creds_json = os.environ.get("GOOGLE_CREDENTIALS")
     creds_dict = json.loads(creds_json)
-    scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
+    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
     return client.open(sheet_name)
@@ -21,7 +22,7 @@ ws = sheet.worksheet("體重記錄表")
 
 @app.route("/")
 def form():
-    return render_template_string(open("templates/form.html", encoding="utf-8").read())
+    return render_template("form.html")
 
 @app.route("/submit", methods=["POST"])
 def submit():
@@ -33,6 +34,7 @@ def submit():
 
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     row = [now, name, height, weight, fat, visceral]
+
     ws.append_row(row)
     return "✅ 已成功記錄！可以關閉此頁面或返回填寫更多資料。"
 
