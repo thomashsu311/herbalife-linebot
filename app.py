@@ -1,3 +1,4 @@
+
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
@@ -70,7 +71,7 @@ def handle_message(event):
     if data_dict:
         try:
             now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-            row = [now, display_name]  # 日期、LINE名稱
+            row = [now, display_name]
             for col in official_columns[2:]:
                 row.append(data_dict.get(col, ""))
             sheet = get_gsheet().worksheet("體重記錄表")
