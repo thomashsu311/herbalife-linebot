@@ -1,4 +1,3 @@
-
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
@@ -10,7 +9,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 app = Flask(__name__)
-tz = timezone(timedelta(hours=8))  # Asia/Taipei
+tz = timezone(timedelta(hours=8))
 
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
@@ -19,7 +18,7 @@ handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 with open("alias.json", "r", encoding="utf-8") as f:
     alias_map = json.load(f)
 
-# 定義正確欄位順序（需與 Google Sheets 表頭一致）
+# 定義正確欄位順序
 official_columns = [
     "日期", "LINE名稱", "稱呼", "身高", "體重", "BMI", "體脂率", "體水份量", "脂肪量",
     "心率", "蛋白質量", "肌肉量", "肌肉率", "身體水份", "蛋白質率", "骨鹽率",
@@ -42,7 +41,6 @@ def home():
 def callback():
     signature = request.headers["X-Line-Signature"]
     body = request.get_data(as_text=True)
-
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
@@ -63,24 +61,24 @@ def handle_message(event):
             now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
             sheet.append_row([now, display_name, gender, height, birthday])
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ 已完成註冊"))
-        except:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠ 請輸入格式：註冊 男 171 1969-03-11"))
+        except Exception as e:
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠ 註冊格式錯誤：" + str(e)))
         return
 
-    data_dict = parse_text(user_text)
-    if data_dict:
-        try:
+    try:
+        data_dict = parse_text(user_text)
+        if data_dict:
             now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-            row = [now, display_name]  # 日期、LINE名稱
+            row = [now, display_name]
             for col in official_columns[2:]:
                 row.append(data_dict.get(col, ""))
             sheet = get_gsheet().worksheet("體重記錄表")
             sheet.append_row(row)
-            reply = f"✅ 已記錄：{', '.join(f'{k}:{v}' for k,v in data_dict.items())}"
-        except Exception as e:
-            reply = "⚠ 寫入失敗：" + str(e)
-    else:
-        reply = "⚠ 請輸入格式如：體重95.3 體脂30.8 內脂14"
+            reply = f"✅ 已記錄：" + ", ".join(f"{k} {v}" for k, v in data_dict.items())
+        else:
+            reply = "⚠ 格式錯誤，請輸入如：體重95.3 體脂30.8 內脂14"
+    except Exception as e:
+        reply = "⚠ 發生錯誤：" + str(e)
 
     line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
 
@@ -91,14 +89,11 @@ def parse_text(text):
             if part.startswith(alias):
                 try:
                     value = part.replace(alias, "")
-                    if "." in value:
-                        value = float(value)
-                    else:
-                        value = int(value)
+                    value = float(value) if "." in value else int(value)
                     data[key] = value
                 except:
-                    pass
-    return data if "體重" in data and "體脂率" in data else None
+                    data[key] = ""
+    return data if data else None
 
 if __name__ == "__main__":
     app.run()
