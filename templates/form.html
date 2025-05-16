@@ -18,19 +18,19 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label">身高（cm）</label>
-                    <input type="number" name="height" class="form-control">
+                    <input type="number" name="height" class="form-control" step="0.1">
                 </div>
                 <div class="mb-3">
                     <label class="form-label">體重（kg）</label>
-                    <input type="number" name="weight" class="form-control">
+                    <input type="number" name="weight" class="form-control" step="0.1">
                 </div>
                 <div class="mb-3">
                     <label class="form-label">體脂率（%）</label>
-                    <input type="number" name="body_fat" class="form-control">
+                    <input type="number" name="body_fat" class="form-control" step="0.1">
                 </div>
                 <div class="mb-3">
                     <label class="form-label">內臟脂肪等級</label>
-                    <input type="number" name="visceral_fat" class="form-control">
+                    <input type="number" name="visceral_fat" class="form-control" step="0.1">
                 </div>
                 <button type="submit" class="btn btn-success w-100">提交紀錄 ✅</button>
             </form>
@@ -40,7 +40,7 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        liff.init({ liffId: "LIFF_ID_PLACEHOLDER" })  // 替換為你的 LIFF ID
+        liff.init({ liffId: "LIFF_ID_PLACEHOLDER" })  // ⚠ 替換為你的實際 LIFF ID
             .then(() => {
                 if (!liff.isLoggedIn()) {
                     liff.login();
