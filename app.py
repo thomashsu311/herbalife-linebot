@@ -1,3 +1,4 @@
+
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
@@ -6,10 +7,11 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import os
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+import pytz
 
 app = Flask(__name__)
-tz = timezone(timedelta(hours=8))
+tz = pytz.timezone("Asia/Taipei")
 
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
