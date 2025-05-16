@@ -10,7 +10,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 app = Flask(__name__)
-tz = timezone(timedelta(hours=8))
+tz = timezone(timedelta(hours=8))  # Asia/Taipei
 
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
@@ -19,7 +19,7 @@ handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 with open("alias.json", "r", encoding="utf-8") as f:
     alias_map = json.load(f)
 
-# 定義正確欄位順序
+# 定義正確欄位順序（需與 Google Sheets 表頭一致）
 official_columns = [
     "日期", "LINE名稱", "稱呼", "身高", "體重", "BMI", "體脂率", "體水份量", "脂肪量",
     "心率", "蛋白質量", "肌肉量", "肌肉率", "身體水份", "蛋白質率", "骨鹽率",
@@ -71,7 +71,7 @@ def handle_message(event):
     if data_dict:
         try:
             now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-            row = [now, display_name]
+            row = [now, display_name]  # 日期、LINE名稱
             for col in official_columns[2:]:
                 row.append(data_dict.get(col, ""))
             sheet = get_gsheet().worksheet("體重記錄表")
@@ -98,7 +98,7 @@ def parse_text(text):
                     data[key] = value
                 except:
                     pass
-    return data if data else None
+    return data if "體重" in data and "體脂率" in data else None
 
 if __name__ == "__main__":
     app.run()
