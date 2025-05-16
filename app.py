@@ -1,7 +1,7 @@
-from flask import Flask, render_template, redirect
+from flask import Flask, redirect
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='/static')
 
 @app.route('/')
 def index():
-    return render_template('form_fresh.html')
+    return redirect('/static/form_fresh.html')

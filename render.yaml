@@ -1,4 +1,6 @@
-type: web
-runtime: python
-buildCommand: ""
-startCommand: "python app.py"
+services:
+- type: web
+  name: herbalife-linebot
+  env: python
+  buildCommand: ""
+  startCommand: "python app.py"
