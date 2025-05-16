@@ -11,7 +11,7 @@ app = Flask(__name__)
 def connect_to_sheet(sheet_name):
     creds_json = os.environ.get("GOOGLE_CREDENTIALS")
     creds_dict = json.loads(creds_json)
-    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
     return client.open(sheet_name)
@@ -39,4 +39,4 @@ def submit():
     return "✅ 已成功記錄！可以關閉此頁面或返回填寫更多資料。"
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
