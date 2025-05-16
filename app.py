@@ -1,76 +1,85 @@
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, FlexSendMessage
-import os, json, datetime
-from sheets import connect_to_sheet, get_or_create_worksheet, load_alias
+from linebot.models import MessageEvent, TextMessage, TextSendMessage
+import os
+from datetime import datetime
+import pytz
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 app = Flask(__name__)
-line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
-handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
-sheet = connect_to_sheet(os.getenv("SHEET_NAME"))
-alias_map = load_alias()
+# LINE credentials
+LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
+line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(LINE_CHANNEL_SECRET)
+
+# Google Sheets setup
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+credentials = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+gc = gspread.authorize(credentials)
+sheet_url = os.getenv("SHEET_URL")
+sh = gc.open_by_url(sheet_url)
+record_ws = sh.worksheet("體重紀錄")
+user_ws = sh.worksheet("使用者資料")
+
+@app.route("/")
+def index():
+    return "LINE Bot is running!"
 
 @app.route("/callback", methods=["POST"])
 def callback():
     signature = request.headers["X-Line-Signature"]
     body = request.get_data(as_text=True)
+
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
+
     return "OK"
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    message_text = event.message.text.strip()
-    uid = event.source.user_id
-    profile = line_bot_api.get_profile(uid)
-    name = profile.display_name
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    user_id = event.source.user_id
+    profile = line_bot_api.get_profile(user_id)
+    display_name = profile.display_name
 
-    if message_text == "選單":
-        with open("flex_message_menu.json", "r", encoding="utf-8") as f:
-            flex_content = json.load(f)
-        flex_message = FlexSendMessage(alt_text="功能選單", contents=flex_content)
-        line_bot_api.reply_message(event.reply_token, flex_message)
-        return
+    text = event.message.text.strip()
 
-    if message_text.startswith("註冊 "):
-        tokens = message_text.split()
-        if len(tokens) == 4:
-            gender, height, birthday = tokens[1], tokens[2], tokens[3]
-            user_ws = get_or_create_worksheet(sheet, "個人資料", ["時間", "LINE名稱", "性別", "身高", "生日"])
-            user_ws.append_row([now, name, gender, height, birthday])
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ 已完成註冊"))
+    if text.startswith("註冊"):
+        parts = text.split()
+        if len(parts) == 4:
+            gender = parts[1]
+            height = parts[2]
+            birth = parts[3]
+            tz = pytz.timezone("Asia/Taipei")
+            now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+            user_ws.append_row([now, display_name, gender, height, birth])
+            reply = f"✅ 已完成註冊"
         else:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="請輸入：註冊 男 170 1990-01-01"))
+            reply = "請輸入：註冊 性別 身高 生日（例：註冊 男 170 1980-01-01）"
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
         return
 
-    records = {}
-    for token in message_text.split():
-        for key in alias_map:
-            if token.startswith(key):
-                value = token[len(key):]
-                if value.replace(".", "").isdigit():
-                    records[alias_map[key]] = value
-                break
+    # 體重紀錄輸入（範例：體重95.3 體脂30.8 內脂14）
+    if "體重" in text:
+        weight = bodyfat = visceral = ""
+        if "體重" in text:
+            weight = text.split("體重")[1].split()[0]
+        if "體脂" in text:
+            bodyfat = text.split("體脂")[1].split()[0]
+        if "內脂" in text:
+            visceral = text.split("內脂")[1].split()[0]
 
-    if records:
-        ws = get_or_create_worksheet(sheet, "體重記錄表", ["時間", "LINE名稱"] + list(set(alias_map.values())))
-        row = [now, name]
-        headers = ws.row_values(1)
-        for col in headers[2:]:
-            row.append(records.get(col, ""))
-        ws.append_row(row)
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(
-            text="✅ 已記錄：" + "、".join([f"{k} {v}" for k, v in records.items()])
-        ))
-    else:
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(
-            text="⚠️ 找不到完整資料，請輸入例如「體重72 體脂25」或「身高171 體重72」"
-        ))
+        tz = pytz.timezone("Asia/Taipei")
+        now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+        record_ws.append_row([now, display_name, weight, bodyfat, visceral])
+        reply = f"✅ 已記錄：體重 {weight}, 體脂率 {bodyfat}, 內臟脂肪 {visceral}"
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+        return
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run()
