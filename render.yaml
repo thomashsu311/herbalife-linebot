@@ -1,6 +1,6 @@
 services:
-  - type: web
-    name: herbalife-linebot
-    env: python
-    buildCommand: ""
-    startCommand: "python app.py"
+- type: web
+  name: herbalife-linebot
+  env: python
+  buildCommand: "pip install -r requirements.txt"
+  startCommand: "python app.py"
