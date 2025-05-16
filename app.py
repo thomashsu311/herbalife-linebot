@@ -1,4 +1,3 @@
-
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
@@ -16,11 +15,9 @@ tz = pytz.timezone("Asia/Taipei")
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
-# 載入 alias.json
 with open("alias.json", "r", encoding="utf-8") as f:
     alias_map = json.load(f)
 
-# 正確欄位順序
 official_columns = [
     "日期", "LINE名稱", "稱呼", "身高", "體重", "BMI", "體脂率", "體水份量", "脂肪量",
     "心率", "蛋白質量", "肌肉量", "肌肉率", "身體水份", "蛋白質率", "骨鹽率",
@@ -87,8 +84,8 @@ def parse_text(text):
     data = {}
     for part in text.split():
         for alias, key in alias_map.items():
-            if part.startswith(alias):
-                value = part.replace(alias, "")
+            if part.startswith(alias) or part.startswith(key):
+                value = part.replace(alias, "").replace(key, "")
                 if key == "稱呼":
                     data[key] = value
                 else:
