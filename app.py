@@ -6,19 +6,17 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import os
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
-tz = timezone(timedelta(hours=8))
+tz = timedelta(hours=8)
 
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
-# 載入 alias.json
 with open("alias.json", "r", encoding="utf-8") as f:
     alias_map = json.load(f)
 
-# 正確欄位順序
 official_columns = [
     "日期", "LINE名稱", "稱呼", "身高", "體重", "BMI", "體脂率", "體水份量", "脂肪量",
     "心率", "蛋白質量", "肌肉量", "肌肉率", "身體水份", "蛋白質率", "骨鹽率",
@@ -27,11 +25,13 @@ official_columns = [
 
 def get_gsheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    credentials_json = json.loads(os.getenv("GOOGLE_CREDENTIALS_JSON"))
+    credentials_raw = os.getenv("GOOGLE_CREDENTIALS")
+    if not credentials_raw:
+        raise ValueError("GOOGLE_CREDENTIALS 環境變數未設定或為空")
+    credentials_json = json.loads(credentials_raw)
     credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_json, scope)
     gc = gspread.authorize(credentials)
-    spreadsheet = gc.open_by_key(os.getenv("GOOGLE_SHEET_KEY"))
-    return spreadsheet
+    return gc.open_by_key(os.getenv("SHEET_NAME"))
 
 @app.route("/")
 def home():
@@ -41,7 +41,6 @@ def home():
 def callback():
     signature = request.headers["X-Line-Signature"]
     body = request.get_data(as_text=True)
-
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
@@ -58,8 +57,8 @@ def handle_message(event):
     if user_text.startswith("註冊"):
         try:
             _, gender, height, birthday = user_text.split()
+            now = (datetime.utcnow() + tz).strftime("%Y-%m-%d %H:%M:%S")
             sheet = get_gsheet().worksheet("使用者資料")
-            now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
             sheet.append_row([now, display_name, gender, height, birthday])
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ 已完成註冊"))
         except:
@@ -69,7 +68,7 @@ def handle_message(event):
     try:
         data = parse_text(user_text)
         if data:
-            now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+            now = (datetime.utcnow() + tz).strftime("%Y-%m-%d %H:%M:%S")
             row = [now, display_name] + [data.get(col, "") for col in official_columns[2:]]
             sheet = get_gsheet().worksheet("體重記錄表")
             sheet.append_row(row)
@@ -97,4 +96,4 @@ def parse_text(text):
     return data if data else None
 
 if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
