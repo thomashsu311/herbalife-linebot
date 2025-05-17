@@ -9,19 +9,13 @@ import json
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-
-# 設定 UTC+8 時區（手動加8小時）
-def now_tw():
-    return datetime.utcnow() + timedelta(hours=8)
-
+tz = datetime.now() + timedelta(hours=8)  # 模擬 UTC+8
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
-# 載入 alias.json
 with open("alias.json", "r", encoding="utf-8") as f:
     alias_map = json.load(f)
 
-# 正確欄位順序
 official_columns = [
     "日期", "LINE名稱", "稱呼", "身高", "體重", "BMI", "體脂率", "體水份量", "脂肪量",
     "心率", "蛋白質量", "肌肉量", "肌肉率", "身體水份", "蛋白質率", "骨鹽率",
@@ -44,7 +38,6 @@ def home():
 def callback():
     signature = request.headers["X-Line-Signature"]
     body = request.get_data(as_text=True)
-
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
@@ -62,7 +55,7 @@ def handle_message(event):
         try:
             _, gender, height, birthday = user_text.split()
             sheet = get_gsheet().worksheet("使用者資料")
-            now = now_tw().strftime("%Y-%m-%d %H:%M:%S")
+            now = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
             sheet.append_row([now, display_name, gender, height, birthday])
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ 已完成註冊"))
         except:
@@ -72,7 +65,7 @@ def handle_message(event):
     try:
         data = parse_text(user_text)
         if data:
-            now = now_tw().strftime("%Y-%m-%d %H:%M:%S")
+            now = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
             row = [now, display_name] + [data.get(col, "") for col in official_columns[2:]]
             sheet = get_gsheet().worksheet("體重記錄表")
             sheet.append_row(row)
@@ -100,5 +93,4 @@ def parse_text(text):
     return data if data else None
 
 if __name__ == "__main__":
-app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
