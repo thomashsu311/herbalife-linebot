@@ -70,8 +70,7 @@ def handle_message(event):
         if data:
             now = (datetime.utcnow() + tz).strftime("%Y-%m-%d %H:%M:%S")
             row = [now, display_name] + [data.get(col, "") for col in official_columns[2:]]
-        sheet_name = os.getenv("SHEET_NAME")  # 從環境變數讀取工作表名稱
-        sheet = get_gsheet().worksheet(sheet_name)  # 透過變數動態對應工作表
+            sheet = get_gsheet().worksheet("體重記錄表")
             sheet.append_row(row)
             reply = f"✅ 已記錄：{', '.join(f'{k}:{v}' for k,v in data.items())}"
         else:
