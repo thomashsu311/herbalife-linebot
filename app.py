@@ -9,19 +9,26 @@ import json
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-tz = datetime.now() + timedelta(hours=8)  # 模擬 UTC+8
+
+# 使用 UTC+8 作為固定台灣時區
+tz = datetime.utcnow() + timedelta(hours=8)
+
+# 初始化 LINE Bot API 與 webhook handler
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
+# 載入別名設定檔 alias.json
 with open("alias.json", "r", encoding="utf-8") as f:
     alias_map = json.load(f)
 
+# 定義工作表欄位順序
 official_columns = [
     "日期", "LINE名稱", "稱呼", "身高", "體重", "BMI", "體脂率", "體水份量", "脂肪量",
     "心率", "蛋白質量", "肌肉量", "肌肉率", "身體水份", "蛋白質率", "骨鹽率",
     "骨骼肌量", "內臟脂肪", "基礎代謝率", "身體年齡"
 ]
 
+# 初始化 Google Sheets
 def get_gsheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     credentials_json = json.loads(os.getenv("GOOGLE_CREDENTIALS_JSON"))
@@ -38,6 +45,7 @@ def home():
 def callback():
     signature = request.headers["X-Line-Signature"]
     body = request.get_data(as_text=True)
+
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
@@ -51,6 +59,7 @@ def handle_message(event):
     profile = line_bot_api.get_profile(user_id)
     display_name = profile.display_name
 
+    # 處理註冊指令
     if user_text.startswith("註冊"):
         try:
             _, gender, height, birthday = user_text.split()
@@ -62,6 +71,7 @@ def handle_message(event):
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠ 請輸入格式：註冊 男 171 1969-03-11"))
         return
 
+    # 一般資料處理
     try:
         data = parse_text(user_text)
         if data:
@@ -77,6 +87,7 @@ def handle_message(event):
 
     line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
 
+# 分析使用者輸入的欄位與資料
 def parse_text(text):
     data = {}
     for part in text.split():
@@ -92,5 +103,6 @@ def parse_text(text):
                         pass
     return data if data else None
 
+# 測試環境或 Render 雲端部署時啟動 Flask
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
