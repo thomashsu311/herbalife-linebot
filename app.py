@@ -6,11 +6,13 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import os
 import json
-from datetime import datetime
-import pytz
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
-tz = pytz.timezone('Asia/Taipei')
+
+# 設定 UTC+8 時區（手動加8小時）
+def now_tw():
+    return datetime.utcnow() + timedelta(hours=8)
 
 line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
@@ -60,7 +62,7 @@ def handle_message(event):
         try:
             _, gender, height, birthday = user_text.split()
             sheet = get_gsheet().worksheet("使用者資料")
-            now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+            now = now_tw().strftime("%Y-%m-%d %H:%M:%S")
             sheet.append_row([now, display_name, gender, height, birthday])
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ 已完成註冊"))
         except:
@@ -70,7 +72,7 @@ def handle_message(event):
     try:
         data = parse_text(user_text)
         if data:
-            now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+            now = now_tw().strftime("%Y-%m-%d %H:%M:%S")
             row = [now, display_name] + [data.get(col, "") for col in official_columns[2:]]
             sheet = get_gsheet().worksheet("體重記錄表")
             sheet.append_row(row)
