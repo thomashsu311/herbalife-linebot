@@ -1,41 +1,21 @@
+
 from flask import Flask, request, abort
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from linebot.v3.messaging import Configuration, MessagingApi, ReplyMessageRequest, TextMessage
+from linebot.v3.webhook import WebhookHandler
+from linebot.v3.webhooks import MessageEvent, TextMessageContent
+from linebot.v3.exceptions import InvalidSignatureError
+from linebot.v3.models import ReplyMessageRequest, TextMessage
 import os
-import json
-from datetime import datetime, timedelta
+from sheets import handle_user_input, ensure_user_registered, update_user_profile
 
 app = Flask(__name__)
-tz = timedelta(hours=8)
 
-line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
-handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
+CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 
-with open("alias.json", "r", encoding="utf-8") as f:
-    alias_map = json.load(f)
-
-official_columns = [
-    "日期", "LINE名稱", "稱呼", "身高", "體重", "BMI", "體脂率", "體水份量", "脂肪量",
-    "心率", "蛋白質量", "肌肉量", "肌肉率", "身體水份", "蛋白質率", "骨鹽率",
-    "骨骼肌量", "內臟脂肪", "基礎代謝率", "身體年齡"
-]
-
-def get_gsheet():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    credentials_raw = os.getenv("GOOGLE_CREDENTIALS")
-    if not credentials_raw:
-        raise ValueError("GOOGLE_CREDENTIALS 環境變數未設定或為空")
-    credentials_json = json.loads(credentials_raw)
-    credentials = ServiceAccountCredentials.from_json_keyfile_dict(credentials_json, scope)
-    gc = gspread.authorize(credentials)
-    return gc.open_by_key(os.getenv("SHEET_NAME"))
-
-@app.route("/")
-def home():
-    return "Herbalife LineBot is running."
+config = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(CHANNEL_SECRET)
+msg_api = MessagingApi(configuration=config)
 
 @app.route("/callback", methods=["POST"])
 def callback():
@@ -47,53 +27,49 @@ def callback():
         abort(400)
     return "OK"
 
-@handler.add(MessageEvent, message=TextMessage)
+@handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     user_id = event.source.user_id
-    user_text = event.message.text.strip()
-    profile = line_bot_api.get_profile(user_id)
-    display_name = profile.display_name
+    user_message = event.message.text.strip()
+    display_name = get_display_name(user_id)
 
-    if user_text.startswith("註冊"):
-        try:
-            _, gender, height, birthday = user_text.split()
-            now = (datetime.utcnow() + tz).strftime("%Y-%m-%d %H:%M:%S")
-            sheet = get_gsheet().worksheet("使用者資料")
-            sheet.append_row([now, display_name, gender, height, birthday])
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ 已完成註冊"))
-        except:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠ 請輸入格式：註冊 男 171 1969-03-11"))
-        return
+    # 註冊指令解析
+    if user_message.startswith("註冊"):
+        params = user_message.replace("註冊", "").strip().split()
+        profile_data = {}
+        for param in params:
+            if param.startswith("性別"):
+                profile_data["gender"] = param.replace("性別", "")
+            elif param.startswith("身高"):
+                profile_data["height"] = param.replace("身高", "")
+            elif param.startswith("生日"):
+                profile_data["birthday"] = param.replace("生日", "")
+            elif param.startswith("教練"):
+                profile_data["coach"] = param.replace("教練", "")
+        update_user_profile(
+            user_id,
+            display_name,
+            gender=profile_data.get("gender"),
+            height=profile_data.get("height"),
+            birthday=profile_data.get("birthday"),
+            coach=profile_data.get("coach")
+        )
+        reply = "✅ 註冊成功！已更新："
+        for k, v in profile_data.items():
+            reply += f"\n{k.replace('gender','性別').replace('height','身高').replace('birthday','生日').replace('coach','教練')}：{v}"
+        send_text(event.reply_token, reply)
+    else:
+        reply = handle_user_input(user_id, display_name, user_message)
+        send_text(event.reply_token, reply)
 
-    try:
-        data = parse_text(user_text)
-        if data:
-            now = (datetime.utcnow() + tz).strftime("%Y-%m-%d %H:%M:%S")
-            row = [now, display_name] + [data.get(col, "") for col in official_columns[2:]]
-            sheet = get_gsheet().worksheet("體重記錄表")
-            sheet.append_row(row)
-            reply = f"✅ 已記錄：{', '.join(f'{k}:{v}' for k,v in data.items())}"
-        else:
-            reply = "⚠ 格式錯誤，請輸入如：體重95.3 體脂30.8 內脂14"
-    except Exception as e:
-        reply = "⚠ 發生錯誤：" + str(e)
+def send_text(token, text):
+    msg = TextMessage(text=text)
+    body = ReplyMessageRequest(reply_token=token, messages=[msg])
+    msg_api.reply_message_with_http_info(body)
 
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
-
-def parse_text(text):
-    data = {}
-    for part in text.split():
-        for alias, key in alias_map.items():
-            if part.startswith(alias):
-                value = part.replace(alias, "")
-                if key == "稱呼":
-                    data[key] = value
-                else:
-                    try:
-                        data[key] = float(value) if "." in value else int(value)
-                    except:
-                        pass
-    return data if data else None
+def get_display_name(user_id):
+    # 模擬用（開發階段可寫死或回傳 user_id）
+    return "許志豪"
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run()

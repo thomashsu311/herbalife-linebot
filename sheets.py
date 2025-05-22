@@ -1,6 +1,6 @@
 
 import gspread
-from datetime import datetime
+from datetime import datetime, timedelta
 from google.oauth2.service_account import Credentials
 import os
 import json
@@ -22,7 +22,7 @@ sheet = gc.open_by_key(os.getenv("GOOGLE_SHEET_ID"))
 user_sheet = sheet.worksheet("個人資料")
 
 def update_user_profile(user_id, display_name, gender=None, height=None, birthday=None, coach=None):
-    now = datetime.now().strftime("%Y-%m-%d")
+    now = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
     headers = user_sheet.row_values(1)
     records = user_sheet.get_all_records()
 
@@ -42,14 +42,13 @@ def update_user_profile(user_id, display_name, gender=None, height=None, birthda
         "教練": coach
     }
 
-    # 將 None 過濾掉，只更新有值的欄位
     data_to_update = {k: v for k, v in data_to_update.items() if v is not None}
 
-    if row_index:  # 如果已存在，進行更新
+    if row_index:  # 已存在：更新
         for key, value in data_to_update.items():
             if key in headers:
                 col = headers.index(key) + 1
                 user_sheet.update_cell(row_index, col, value)
-    else:  # 如果不存在，新增一筆
+    else:  # 不存在：新增
         new_row = [data_to_update.get(h, "") for h in headers]
         user_sheet.append_row(new_row)
